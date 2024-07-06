@@ -3,7 +3,7 @@ A simple discord JS bot (source code), mainly focused on easy applications witho
 
 # SETUP
 ## Tidbits:
-`Get your bot token using Google/YouTube`
+`Get your bot token on Discord Developer Portal`
 
 `Go to developer mode in Discord to copy ids`
 ## Powering the bot:
