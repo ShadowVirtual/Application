@@ -1,5 +1,5 @@
 # ApplicationsBot-DiscordJS 
-A simple discord JS bot (source code), mainly focused on easy applications without using any sort of database!
+A simple discord JS bot (source code), mainly focused on easy applications without using any sort of database! 2024 Revamp! Figured now its time!
 
 # SETUP
 ## Tidbits:
