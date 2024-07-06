@@ -1,66 +1,72 @@
-/* CONSTANTS */
-const Discord = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes } = require('discord.js');
 const fs = require('fs');
-const client = new Discord.Client();
-const config = require("./config.json");
-const prefix = config.PREFIX;
+const config = require('./config.json');
 
-/* COMMAND HANDLER */
-client.commands = new Discord.Collection();
-client.aliases = new Discord.Collection();
- 
-/* LOAD COMMAND FILES */
-fs.readdir('./COMMANDS/', (err, files) => {
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.DirectMessages
+  ]
+});
 
-  if (err) console.log(err);
+client.commands = new Map();
 
-  let jsfile = files.filter(f => f.split(".").pop() === "js")
-
-  if (jsfile.length <= 0) {
-    console.log("[WARNING]: Command folder is empty, No files loaded!")
-    return;
+// Load command files
+fs.readdirSync('./COMMANDS/').forEach(file => {
+  try {
+    const command = require(`./COMMANDS/${file}`);
+    if (!command.data || !command.data.name) {
+      console.error(`[WARNING] The command at ${file} is missing a required "data" or "data.name" property.`);
+    } else {
+      client.commands.set(command.data.name, command);
+      console.log(`[INFO] Loaded command: ${command.data.name}`);
+    }
+  } catch (error) {
+    console.error(`[ERROR] Failed to load command in ${file}:`, error);
   }
+});
 
-  setTimeout(function() {
-    console.log("[BOOT]: Reading files...");
-  }, 0)
+client.once('ready', async () => {
+  console.log(`[BOOT]: Booted client ${client.user.tag}!`);
+  client.user.setStatus('online');
 
-  jsfile.forEach((f, i) => {
-    let props = require(`./COMMANDS/${f}`)
-    console.log(`[BOOT]: Fetched ${f}`);
-    client.commands.set(props.help.name, props);
-    props.help.aliases.forEach(alias => {
-      client.aliases.set(alias, props.help.name)
-    })
-  })
+  const statuses = [`applications you sent...`, `with Gazarino`];
+  setInterval(() => {
+    const status = statuses[Math.floor(Math.random() * statuses.length)];
+    client.user.setActivity(status, { type: "WATCHING" });
+  }, 25000);
 
-  setTimeout(function() {
-    console.log(`[BOOT]: Verified all commands!`);
-  }, 1000)
-})
-    /* COMMANDS */
+  // Register slash commands
+  const rest = new REST({ version: '10' }).setToken(config.TOKEN);
+  try {
+    console.log('Started refreshing application (/) commands.');
 
-  client.on("message", async message => {
+    await rest.put(
+      Routes.applicationCommands(client.user.id),
+      { body: [...client.commands.values()].map(cmd => cmd.data.toJSON()) },
+    );
 
-    let messageArray = message.content.split(" ");
-    let commandName = messageArray[0].toLowerCase();
-    let args = messageArray.slice(1);
-    let commandfile = client.commands.get(commandName.slice(prefix.length)) || client.commands.get(client.aliases.get(commandName.slice(prefix.length)));
-    if (!message.content.startsWith(prefix) || message.author.bot) return;
-    if (commandfile) commandfile.run(client, message, args);
-  })
+    console.log('Successfully reloaded application (/) commands.');
+  } catch (error) {
+    console.error(error);
+  }
+});
 
+client.on('interactionCreate', async interaction => {
+  if (!interaction.isCommand()) return;
 
-   /* BOOT STATS */
+  const command = client.commands.get(interaction.commandName);
 
-client.on("ready", () => {
-  console.log(`[BOOT]: Booted client ${client.user.tag}!`)
-  client.user.setStatus('online')
-   let statuses = [`applications you sent...`, `with Gazarino`]
-   setInterval(function() {
-      let status = statuses[Math.floor(Math.random() * statuses.length)];
-      client.user.setActivity(status, { type: "WATCHING" })
-  }, 25000)
-})
+  if (!command) return;
+
+  try {
+    await command.execute(interaction);
+  } catch (error) {
+    console.error(error);
+    await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
+  }
+});
 
 client.login(config.TOKEN);
