@@ -1,11 +1,21 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const config = require('../config.json');
+const fs = require('fs');
+const path = require('path');
+
+// Path to the file that stores accepted users
+const acceptedUsersFilePath = path.join(__dirname, '../acceptedUsers.json');
+
+// Ensure the acceptedUsers.json file exists, create it if it doesn't
+if (!fs.existsSync(acceptedUsersFilePath)) {
+  fs.writeFileSync(acceptedUsersFilePath, JSON.stringify([]));
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('accept')
     .setDescription('Accept an application')
-    .addUserOption(option => 
+    .addUserOption(option =>
       option.setName('user')
         .setDescription('The user to accept')
         .setRequired(true))
@@ -44,6 +54,19 @@ module.exports = {
       return interaction.reply({ embeds: [noRespMsg], ephemeral: true });
     }
 
+    // Load accepted users
+    const acceptedUsers = JSON.parse(fs.readFileSync(acceptedUsersFilePath));
+
+    // Check if the user is already accepted
+    if (acceptedUsers.includes(dUser.id)) {
+      const alreadyAccepted = new EmbedBuilder()
+        .setTitle('📛 **Error**')
+        .setDescription('This user has already been accepted.')
+        .setColor("Random");
+
+      return interaction.reply({ embeds: [alreadyAccepted], ephemeral: true });
+    }
+
     const acceptUSER = new EmbedBuilder()
       .setTitle('**Congratulations!**')
       .setDescription(`You got a response from application in [${guild.name}]`)
@@ -62,6 +85,10 @@ module.exports = {
       .setDescription(`You can check your inbox, ${dUser}!`)
       .setColor("Random");
 
-    await interaction.reply({ embeds: [acceptConfirm] });
+    await interaction.reply({ embeds: [acceptConfirm], ephemeral: true });
+
+    // Add the user to the accepted users list and save
+    acceptedUsers.push(dUser.id);
+    fs.writeFileSync(acceptedUsersFilePath, JSON.stringify(acceptedUsers, null, 2));
   }
 };
